@@ -1,0 +1,26 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Editor / OS files
+.DS_Store
+.idea/
+.vscode/
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+
+# FastAPI / Python logs
+*.log
+
+# Optional: local env files
+.env
