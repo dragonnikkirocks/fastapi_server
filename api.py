@@ -2,6 +2,7 @@ from fastapi import APIRouter, FastAPI, Path, HTTPException, Request, Form, stat
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
 from model import Todo, TodoItem
+from datetime import datetime
 
 router = APIRouter()
 app = FastAPI()
@@ -10,7 +11,8 @@ todo_list = []
 
 @router.get("/", response_class=HTMLResponse)
 async def welcome(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "todos": todo_list})
+    sorted_todos = sorted(todo_list, key=lambda x: x.due_date if x.due_date else datetime.max)
+    return templates.TemplateResponse("index.html", {"request": request, "todos": sorted_todos})
 
 @router.post(
     "/todo",
@@ -32,6 +34,9 @@ async def add_todo_form(
     request: Request,
     id: int = Form(...),
     item: str = Form(...),
+    created_by: str = Form(...),
+    details: str = Form(default=""),
+    due_date: str = Form(default=None),
 ):
     if len(todo_list) >= 2:
         return templates.TemplateResponse(
@@ -43,7 +48,21 @@ async def add_todo_form(
             },
         )
 
-    todo = Todo(id=id, item=item)
+    from datetime import datetime
+    parsed_due_date = None
+    if due_date:
+        try:
+            parsed_due_date = datetime.fromisoformat(due_date)
+        except ValueError:
+            parsed_due_date = None
+
+    todo = Todo(
+        id=id, 
+        item=item, 
+        created_by=created_by,
+        details=details if details else None,
+        due_date=parsed_due_date
+    )
     todo_list.append(todo)
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -51,7 +70,8 @@ async def add_todo_form(
 async def get_todolist() -> list[Todo]:
     if not todo_list:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Todo list is empty.")
-    return todo_list
+    sorted_todos = sorted(todo_list, key=lambda x: x.due_date if x.due_date else datetime.max)
+    return sorted_todos
 
 @router.get("/todo/{todo_id}", response_model=list[Todo])
 async def get_single_todo(
@@ -70,6 +90,9 @@ async def update_todo(
     for todo in todo_list:
         if todo.id == todo_id:
             todo.item = todo_data.item
+            todo.details = todo_data.details
+            todo.created_by = todo_data.created_by
+            todo.due_date = todo_data.due_date
             return todo
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Todo with supplied ID doesn't exist.")
 

@@ -115,7 +115,8 @@
         transition: transform 0.2s, box-shadow 0.2s;
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
+        gap: 10px;
       }
       
       .todo-list li:hover {
@@ -165,6 +166,18 @@
           <label for="item">Todo Item:</label>
           <input type="text" id="item" name="item" placeholder="Enter your todo..." required />
         </div>
+        <div class="form-group">
+          <label for="created_by">Created By:</label>
+          <input type="text" id="created_by" name="created_by" placeholder="Your name..." required />
+        </div>
+        <div class="form-group">
+          <label for="details">Details:</label>
+          <input type="text" id="details" name="details" placeholder="Add more details (optional)" />
+        </div>
+        <div class="form-group">
+          <label for="due_date">Due Date:</label>
+          <input type="datetime-local" id="due_date" name="due_date" />
+        </div>
         <button type="submit">+ Add Todo</button>
       </form>
 
@@ -172,7 +185,16 @@
         <ul class="todo-list">
           {% for todo in todos %}
             <li>
-              <span>ID: <strong>{{ todo.id }}</strong> - {{ todo.item }}</span>
+              <div style="flex-grow: 1;">
+                <strong>{{ todo.item }}</strong><br/>
+                <small style="color: #555;">ID: {{ todo.id }} | By: {{ todo.created_by }}</small><br/>
+                {% if todo.details %}
+                  <small style="color: #666;">{{ todo.details }}</small><br/>
+                {% endif %}
+                {% if todo.due_date %}
+                  <small style="color: #d32f2f;">Due: {{ todo.due_date }}</small>
+                {% endif %}
+              </div>
               <form action="/todo/{{ todo.id }}" method="post" style="display: inline;">
                 <input type="hidden" name="_method" value="DELETE" />
                 <button type="submit" class="delete-btn" onclick="return confirm('Are you sure?')">Delete</button>
