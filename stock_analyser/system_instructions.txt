@@ -1,0 +1,23 @@
+ """Send the collected data to Gemini and ask for a qualitative analysis.
+
+    Retries on transient errors (like a 503 "model overloaded") with backoff,
+    and falls back to a second model if the first one keeps failing.
+    """
+    client = genai.Client()  # reads GEMINI_API_KEY from environment
+
+    prompt = f"""You are a financial research assistant. Below is real recent
+price data and news headlines for {ticker}. Write a short, balanced analysis
+covering:
+1. What the recent price trend shows (a few sentences)
+2. What the news headlines suggest is currently affecting the company
+3. 2-3 specific things someone researching this stock further should look into
+
+Do NOT give a price target, a buy/sell recommendation, or any prediction of
+future price movement. Be clear this is not financial advice.
+
+PRICE DATA:
+{price_summary}
+
+RECENT NEWS HEADLINES:
+{news_summary}
+"""

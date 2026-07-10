@@ -119,14 +119,14 @@ a suggested order at the end if you're not sure where to start.
 - **System instructions**: instead of stuffing "you are a financial
   research assistant, don't give price predictions" into the user prompt
   every time, move that into a `system_instruction` parameter on the model
-  config. Cleaner separation, and the standard pattern for any real app.
+  config. Cleaner separation, and the standard pattern for any real app. -> done
 - **Streaming**: switch `generate_content` to `generate_content_stream` so
-  the analysis prints as it's generated, instead of all at once.
+  the analysis prints as it's generated, instead of all at once. -> done
 - **Token counting**: use `client.models.count_tokens()` before sending a
   request to estimate cost, and display it in the UI ("this analysis will
-  use ~X tokens"). Good habit for any real product.
+  use ~X tokens"). Good habit for any real product. -> done
 - **Safety settings**: explore the `safety_settings` config option — not
-  critical for this app, but foundational for anything you build later.
+  critical for this app, but foundational for anything you build later. -> basic concept understood. Not planned to be integrated now
 
 **Giving Gemini more capability:**
 - **Function calling**: instead of fetching data yourself and stuffing it
@@ -212,6 +212,43 @@ a suggested order at the end if you're not sure where to start.
   secret environment variable — never hardcoded — is a good capstone step
   that teaches the last mile of "shipping" an API project.
 
+### Trying other providers: Amazon Bedrock
+
+Worth knowing about once you've got the Gemini version working: **Amazon
+Bedrock** is AWS's managed API for foundation models — instead of one
+provider, it gives you a single unified API to call models from Anthropic
+(Claude), Meta (Llama), Mistral, Amazon (Nova), and others.
+
+A few things to know before switching or adding it:
+
+- **No free tier** — unlike Gemini's free rate-limited tier, Bedrock is
+  pay-per-token from your very first request. New AWS accounts do get
+  $200 in general AWS credit (split $100 signup / $100 for completing
+  guided activities, expiring after 6 months), usable on Bedrock, but
+  there's no ongoing free allotment for experimentation the way Gemini
+  has.
+- **Different auth model** — instead of a single `GEMINI_API_KEY`, Bedrock
+  uses AWS IAM credentials (access key + secret, or an IAM role), via the
+  `boto3` SDK. This is a genuinely useful thing to learn since IAM-based
+  auth is how most AWS services work, not just Bedrock.
+- **Why you'd use it anyway** — it's the natural choice if you're already
+  building on AWS infrastructure (e.g. deploying this app on AWS later —
+  see the Deployment idea above), need a model from a provider other than
+  Google, or want compliance features (HIPAA eligibility, data residency,
+  private networking via PrivateLink) that matter for regulated use cases.
+  It's also a good way to compare how the *same* model (e.g. Claude)
+  behaves when called through Bedrock vs. directly through Anthropic's own
+  API.
+
+**As a learning exercise**, a clean way to try this: add a second
+`analyze_with_bedrock()` function alongside `analyze_with_gemini()` using
+`boto3`'s `bedrock-runtime` client and its `converse()` API (Bedrock's
+unified interface across model providers), then add a `?provider=gemini`
+vs `?provider=bedrock` query parameter to the `/analyze` endpoint so you
+can compare responses from different providers on the same data — a nice
+introduction to building provider-agnostic LLM code, which matters a lot
+if you ever build something you don't want locked into a single vendor.
+
 ### Suggested order to tackle these
 
 If you're not sure where to start, roughly:
@@ -228,5 +265,6 @@ If you're not sure where to start, roughly:
 7. **Caching + persistence** — once you have real repeat usage to optimize
    for.
 8. Everything else (multi-turn chat, embeddings, multimodal input, context
-   caching, async/batch, deployment) — pick based on what sounds most
-   interesting once the basics are solid.
+   caching, async/batch, deployment, trying Amazon Bedrock as a second
+   provider) — pick based on what sounds most interesting once the basics
+   are solid.

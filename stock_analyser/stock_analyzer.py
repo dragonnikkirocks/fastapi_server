@@ -26,21 +26,18 @@ import time
 import matplotlib
 matplotlib.use("Agg")  # non-interactive backend — required for headless environments
 
+from matplotlib import ticker
 import mplfinance as mpf
 import yfinance as yf
 from google import genai
 from google.genai import errors as genai_errors
 
+from stock_data import StockDataProvider, YahooFinanceStockDataProvider
+
 
 def get_price_history(ticker: str, days: int):
     """Pull raw OHLCV price history as a pandas DataFrame."""
-    stock = yf.Ticker(ticker)
-    hist = stock.history(period=f"{days}d")
-
-    if hist.empty:
-        raise ValueError(f"No price data found for ticker '{ticker}'. Check the symbol.")
-
-    return hist
+    return STOCK_DATA_PROVIDER.get_price_history(ticker, days)
 
 
 def summarize_price_history(hist, ticker: str, days: int) -> str:
@@ -132,9 +129,10 @@ def fetch_news_summary(ticker: str, max_items: int = 5) -> str:
 # Tried in order. gemini-3.5-flash is the main model; gemini-3.1-flash-lite
 # is a lighter/cheaper fallback if the first one is overloaded or unavailable.
 MODEL_FALLBACKS = ["gemini-3.5-flash", "gemini-3.1-flash-lite"]
+STOCK_DATA_PROVIDER: StockDataProvider = YahooFinanceStockDataProvider()
 
 
-def analyze_with_gemini(price_summary: str, news_summary: str, ticker: str) -> str:
+def analyze_with_gemini(price_summary: str, news_summary: str, ticker: str) :
     """Send the collected data to Gemini and ask for a qualitative analysis.
 
     Retries on transient errors (like a 503 "model overloaded") with backoff,
@@ -142,32 +140,38 @@ def analyze_with_gemini(price_summary: str, news_summary: str, ticker: str) -> s
     """
     client = genai.Client()  # reads GEMINI_API_KEY from environment
 
-    prompt = f"""You are a financial research assistant. Below is real recent
-price data and news headlines for {ticker}. Write a short, balanced analysis
-covering:
-1. What the recent price trend shows (a few sentences)
-2. What the news headlines suggest is currently affecting the company
-3. 2-3 specific things someone researching this stock further should look into
+    system_instruction = """You are a financial research assistant. You write
+        short, balanced analyses of stocks based on price data and news headlines.
+        Never give a price target, a buy/sell recommendation, or any prediction of
+        future price movement. Always make clear this is not financial advice."""
 
-Do NOT give a price target, a buy/sell recommendation, or any prediction of
-future price movement. Be clear this is not financial advice.
+    prompt = f"""Analyse the following data for {ticker} and write a short report covering:
+                1. What the recent price trend shows (a few sentences)
+                2. What the news headlines suggest is currently affecting the company
+                3. 2-3 specific things someone researching this stock further should look into
 
-PRICE DATA:
-{price_summary}
+                PRICE DATA:
+                {price_summary}
 
-RECENT NEWS HEADLINES:
-{news_summary}
-"""
+                RECENT NEWS HEADLINES:
+                {news_summary}
+                Write in plain English, suitable for a general audience. Keep it concise."""
+    
 
     last_error = None
     for model in MODEL_FALLBACKS:
         for attempt in range(3):
             try:
-                response = client.models.generate_content(
-                    model=model,
-                    contents=prompt,
+                token_count=client.models.count_tokens(
+                    model = model,
+                    contents= prompt,
                 )
-                return response.text
+                response = client.models.generate_content_stream(
+                            model=model,contents=prompt,config={"system_instruction": system_instruction},)
+                for chunk in response:
+                    print(chunk.text, end="", flush=True)
+
+                print("Gemini analysis complete. The token count for this request was:", token_count.total_tokens)
             except genai_errors.ServerError as e:
                 # Transient issue (e.g. 503 overloaded) - wait and retry.
                 last_error = e
@@ -214,10 +218,9 @@ def main():
         chart_path = f"{ticker}_candlestick.png"
         plot_candlestick(hist, ticker, chart_path)
         print(f"\nCandlestick chart saved to: {chart_path}")
-
+    
     print("\n--- Gemini Analysis ---")
-    analysis = analyze_with_gemini(price_summary, news_summary, ticker)
-    print(analysis)
+    analyze_with_gemini(price_summary, news_summary, ticker)
 
     print(
         "\n(This is a learning project, not financial advice. "
